@@ -1,0 +1,29 @@
+[Unit]
+Description=Telegram QRIS & Expense Tracker Bot
+After=network.target network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Ganti dengan username VPS kamu jika tidak menggunakan root (contoh: ubuntu atau debian)
+User=root
+# Sesuaikan direktori tempat meletakkan project di VPS
+WorkingDirectory=/opt/qris-bot
+# Path ke interpreter Python di dalam virtual environment
+ExecStart=/opt/qris-bot/venv/bin/python main.py
+
+# Restart policy: selalu restart otomatis jika crash/reboot
+Restart=always
+RestartSec=5s
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=qris-bot
+
+# Security & environment
+Environment=PYTHONUNBUFFERED=1
+EnvironmentFile=/opt/qris-bot/.env
+
+[Install]
+WantedBy=multi-user.target
