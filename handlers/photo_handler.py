@@ -395,4 +395,5 @@ def get_photo_conversation_handler() -> ConversationHandler:
         ],
         name="photo_conversation",
         persistent=False,
+        per_message=False,
     )

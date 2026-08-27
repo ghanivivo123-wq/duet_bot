@@ -255,4 +255,5 @@ def get_edit_conversation_handler() -> ConversationHandler:
         ],
         name="edit_row_conversation",
         persistent=False,
+        per_message=False,
     )
