@@ -1,3 +1,4 @@
+import html
 import logging
 from collections import defaultdict
 from datetime import datetime
@@ -18,27 +19,27 @@ logger = logging.getLogger(__name__)
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle /start command - onboarding guide."""
     user = update.effective_user
-    first_name = user.first_name if user else "teman"
+    first_name = html.escape(user.first_name) if user and user.first_name else "teman"
 
     welcome_text = (
-        f"👋 *Halo {first_name}! Selamat datang di Bot Pencatat Pengeluaran.*\n\n"
+        f"👋 <b>Halo {first_name}! Selamat datang di Bot Pencatat Pengeluaran.</b>\n\n"
         f"Bot ini siap membantu kamu mencatat pengeluaran otomatis via OCR Gemini dari struk QRIS atau nota fisik.\n\n"
-        f"📌 *Cara Mencatat Transaksi:*\n"
+        f"📌 <b>Cara Mencatat Transaksi:</b>\n"
         f"1. Kirim foto struk QRIS atau nota belanja langsung ke sini.\n"
-        f"2. Sertakan caption keterangan belanja (misal: `Beli kopi susu`), atau bot akan menanyakannya jika kosong.\n"
+        f"2. Sertakan caption keterangan belanja (misal: <code>Beli kopi susu</code>), atau bot akan menanyakannya jika kosong.\n"
         f"3. Bot akan mengekstrak nominal, merchant, tanggal, & kategori otomatis.\n"
-        f"4. Cek hasil ekstraksi, lalu tekan *✅ Simpan*.\n\n"
-        f"📊 *Menu Perintah Laporan & Pengaturan:*\n"
-        f"• `/laporan` — Laporan & grafik harian bulan ini\n"
-        f"• `/laporan 7hari` — Laporan & grafik 7 hari terakhir\n"
-        f"• `/laporan YYYY-MM` — Laporan bulan tertentu (misal: `/laporan 2026-08`)\n"
-        f"• `/kategori` — Grafik pie & rincian pengeluaran per kategori bulan ini\n"
-        f"• `/edit [id]` — Edit data pengeluaran (misal: `/edit 5`)\n"
-        f"• `/hapus_terakhir` — Hapus baris transaksi terakhir di Spreadsheet\n\n"
-        f"💡 _Semua data tersimpan rapi di Google Sheets pribadimu._"
+        f"4. Cek hasil ekstraksi, lalu tekan <b>✅ Simpan</b>.\n\n"
+        f"📊 <b>Menu Perintah Laporan & Pengaturan:</b>\n"
+        f"• <code>/laporan</code> — Laporan & grafik harian bulan ini\n"
+        f"• <code>/laporan 7hari</code> — Laporan & grafik 7 hari terakhir\n"
+        f"• <code>/laporan YYYY-MM</code> — Laporan bulan tertentu (misal: <code>/laporan 2026-08</code>)\n"
+        f"• <code>/kategori</code> — Grafik pie & rincian pengeluaran per kategori bulan ini\n"
+        f"• <code>/edit [id]</code> — Edit data pengeluaran (misal: <code>/edit 5</code>)\n"
+        f"• <code>/hapus_terakhir</code> — Hapus baris transaksi terakhir di Spreadsheet\n\n"
+        f"💡 <i>Semua data tersimpan rapi di Google Sheets pribadimu.</i>"
     )
 
-    await update.effective_message.reply_text(welcome_text, parse_mode=ParseMode.MARKDOWN)
+    await update.effective_message.reply_text(welcome_text, parse_mode=ParseMode.HTML)
 
 
 @config.restricted
@@ -66,20 +67,20 @@ async def laporan_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             period_label = "Semua Waktu"
         else:
             await message.reply_text(
-                "⚠️ Format periode tidak dikenali.\nGunakan:\n• `/laporan` (bulan ini)\n• `/laporan 7hari`\n• `/laporan YYYY-MM` (contoh: `/laporan 2026-08`)",
-                parse_mode=ParseMode.MARKDOWN,
+                "⚠️ <b>Format periode tidak dikenali.</b>\nGunakan:\n• <code>/laporan</code> (bulan ini)\n• <code>/laporan 7hari</code>\n• <code>/laporan YYYY-MM</code> (contoh: <code>/laporan 2026-08</code>)",
+                parse_mode=ParseMode.HTML,
             )
             return
 
-    status_msg = await message.reply_text("⏳ _Mengambil data dan menyusun laporan..._", parse_mode=ParseMode.MARKDOWN)
+    status_msg = await message.reply_text("⏳ <i>Mengambil data dan menyusun laporan...</i>", parse_mode=ParseMode.HTML)
 
     try:
         expenses = sheets.get_expenses_by_period(period)
 
         if not expenses:
             await status_msg.edit_text(
-                f"ℹ️ Tidak ditemukan catatan pengeluaran untuk periode *{period_label}*.",
-                parse_mode=ParseMode.MARKDOWN,
+                f"ℹ️ Tidak ditemukan catatan pengeluaran untuk periode <b>{html.escape(period_label)}</b>.",
+                parse_mode=ParseMode.HTML,
             )
             return
 
@@ -109,12 +110,12 @@ async def laporan_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
         # Caption text
         caption_lines = [
-            f"📊 *Laporan Pengeluaran ({period_label})*",
+            f"📊 <b>Laporan Pengeluaran ({html.escape(period_label)})</b>",
             f"━━━━━━━━━━━━━━━━━━",
-            f"💰 *Total Pengeluaran* : `{charts.format_rupiah(total_pengeluaran)}`",
-            f"🧾 *Total Transaksi*   : `{total_transaksi}` transaksi",
-            f"📅 *Rata-rata Harian*  : `{charts.format_rupiah(rata_rata_harian)}` / hari ({len(unique_dates)} hari aktif)",
-            f"🏆 *Kategori Terbesar* : *{top_category}* (`{charts.format_rupiah(top_category_amount)}` / {top_cat_pct:.1f}%)",
+            f"💰 <b>Total Pengeluaran</b> : <code>{charts.format_rupiah(total_pengeluaran)}</code>",
+            f"🧾 <b>Total Transaksi</b>   : <code>{total_transaksi}</code> transaksi",
+            f"📅 <b>Rata-rata Harian</b>  : <code>{charts.format_rupiah(rata_rata_harian)}</code> / hari ({len(unique_dates)} hari aktif)",
+            f"🏆 <b>Kategori Terbesar</b> : <b>{html.escape(top_category)}</b> (<code>{charts.format_rupiah(top_category_amount)}</code> / {top_cat_pct:.1f}%)",
             f"━━━━━━━━━━━━━━━━━━",
         ]
         caption = "\n".join(caption_lines)
@@ -125,14 +126,14 @@ async def laporan_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             await message.reply_photo(
                 photo=chart_buffer,
                 caption=caption,
-                parse_mode=ParseMode.MARKDOWN,
+                parse_mode=ParseMode.HTML,
             )
         else:
-            await message.reply_text(caption, parse_mode=ParseMode.MARKDOWN)
+            await message.reply_text(caption, parse_mode=ParseMode.HTML)
 
     except Exception as exc:
         logger.error("Error generating /laporan: %s", exc, exc_info=True)
-        await status_msg.edit_text(f"❌ Gagal memuat laporan: `{exc}`", parse_mode=ParseMode.MARKDOWN)
+        await status_msg.edit_text(f"❌ Gagal memuat laporan: <code>{html.escape(str(exc))}</code>", parse_mode=ParseMode.HTML)
 
 
 @config.restricted
@@ -145,15 +146,15 @@ async def kategori_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     current_month_str = datetime.now().strftime("%Y-%m")
     period_label = f"Bulan {current_month_str}"
 
-    status_msg = await message.reply_text("⏳ _Menghitung rincian kategori pengeluaran..._", parse_mode=ParseMode.MARKDOWN)
+    status_msg = await message.reply_text("⏳ <i>Menghitung rincian kategori pengeluaran...</i>", parse_mode=ParseMode.HTML)
 
     try:
         expenses = sheets.get_expenses_by_period("bulan-ini")
 
         if not expenses:
             await status_msg.edit_text(
-                f"ℹ️ Belum ada catatan pengeluaran di {period_label}.",
-                parse_mode=ParseMode.MARKDOWN,
+                f"ℹ️ Belum ada catatan pengeluaran di {html.escape(period_label)}.",
+                parse_mode=ParseMode.HTML,
             )
             return
 
@@ -176,8 +177,8 @@ async def kategori_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
         # Build detailed breakdown caption
         breakdown_lines = [
-            f"🥧 *Proporsi Kategori ({period_label})*",
-            f"💰 *Total:* `{charts.format_rupiah(total_pengeluaran)}`\n",
+            f"🥧 <b>Proporsi Kategori ({html.escape(period_label)})</b>",
+            f"💰 <b>Total:</b> <code>{charts.format_rupiah(total_pengeluaran)}</code>\n",
             f"━━━━━━━━━━━━━━━━━━",
         ]
 
@@ -185,7 +186,7 @@ async def kategori_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
             pct = (amount / total_pengeluaran * 100) if total_pengeluaran > 0 else 0
             cnt = category_counts[cat]
             breakdown_lines.append(
-                f"{idx}. *{cat}*: `{charts.format_rupiah(amount)}` ({pct:.1f}%) — _{cnt}x_"
+                f"{idx}. <b>{html.escape(cat)}</b>: <code>{charts.format_rupiah(amount)}</code> ({pct:.1f}%) — <i>{cnt}x</i>"
             )
         breakdown_lines.append(f"━━━━━━━━━━━━━━━━━━")
 
@@ -197,11 +198,11 @@ async def kategori_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
             await message.reply_photo(
                 photo=chart_buffer,
                 caption=caption,
-                parse_mode=ParseMode.MARKDOWN,
+                parse_mode=ParseMode.HTML,
             )
         else:
-            await message.reply_text(caption, parse_mode=ParseMode.MARKDOWN)
+            await message.reply_text(caption, parse_mode=ParseMode.HTML)
 
     except Exception as exc:
         logger.error("Error generating /kategori: %s", exc, exc_info=True)
-        await status_msg.edit_text(f"❌ Gagal memuat grafik kategori: `{exc}`", parse_mode=ParseMode.MARKDOWN)
+        await status_msg.edit_text(f"❌ Gagal memuat grafik kategori: <code>{html.escape(str(exc))}</code>", parse_mode=ParseMode.HTML)

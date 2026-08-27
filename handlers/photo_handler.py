@@ -1,3 +1,4 @@
+import html
 import logging
 import re
 from typing import Any, Dict
@@ -26,32 +27,32 @@ AWAITING_EDIT_INPUT = 2
 
 
 def _build_summary_message(data: Dict[str, Any]) -> str:
-    """Format extracted/edited expense data into readable Telegram message."""
+    """Format extracted/edited expense data into readable Telegram message using HTML."""
     nominal_formatted = charts.format_rupiah(data.get("nominal", 0))
-    jenis_bukti = data.get("jenis_bukti", "Nota")
-    tanggal = data.get("tanggal", "-")
-    waktu = data.get("waktu", "")
+    jenis_bukti = html.escape(str(data.get("jenis_bukti", "Nota")))
+    tanggal = html.escape(str(data.get("tanggal", "-")))
+    waktu = html.escape(str(data.get("waktu", "")))
     waktu_str = f" ({waktu})" if waktu else ""
-    merchant = data.get("merchant", "") or "-"
-    keterangan = data.get("keterangan", "") or "-"
-    kategori = data.get("kategori", "Lain-lain")
-    confidence = data.get("confidence", "medium")
+    merchant = html.escape(str(data.get("merchant", "") or "-"))
+    keterangan = html.escape(str(data.get("keterangan", "") or "-"))
+    kategori = html.escape(str(data.get("kategori", "Lain-lain")))
+    confidence = str(data.get("confidence", "medium"))
 
     icon = "📱" if jenis_bukti == "QRIS" else "🧾"
 
     lines = [
-        f"{icon} *Ringkasan Bukti Transaksi ({jenis_bukti})*",
+        f"{icon} <b>Ringkasan Bukti Transaksi ({jenis_bukti})</b>",
         f"━━━━━━━━━━━━━━━━━━",
-        f"💵 *Nominal*    : `{nominal_formatted}`",
-        f"🏷 *Keterangan* : {keterangan}",
-        f"📁 *Kategori*   : {kategori}",
-        f"🏪 *Merchant*   : {merchant}",
-        f"📅 *Tanggal*    : {tanggal}{waktu_str}",
+        f"💵 <b>Nominal</b>    : <code>{nominal_formatted}</code>",
+        f"🏷 <b>Keterangan</b> : {keterangan}",
+        f"📁 <b>Kategori</b>   : {kategori}",
+        f"🏪 <b>Merchant</b>   : {merchant}",
+        f"📅 <b>Tanggal</b>    : {tanggal}{waktu_str}",
         f"━━━━━━━━━━━━━━━━━━",
     ]
 
     if confidence == "low":
-        lines.append("\n⚠️ _Catatan: Beberapa data mungkin kurang akurat, silakan cek dulu ya sebelum disimpan._")
+        lines.append("\n⚠️ <i>Catatan: Beberapa data mungkin kurang akurat, silakan cek dulu ya sebelum disimpan.</i>")
 
     return "\n".join(lines)
 
@@ -90,8 +91,8 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
     if not caption:
         # Ask user for description
         await message.reply_text(
-            "📷 Foto bukti pembayaran diterima!\n\n*Beli apa nih?* (Ketik keterangan singkat belanjaan kamu)",
-            parse_mode=ParseMode.MARKDOWN,
+            "📷 <b>Foto bukti pembayaran diterima!</b>\n\n<b>Beli apa nih?</b> (Ketik keterangan singkat belanjaan kamu)",
+            parse_mode=ParseMode.HTML,
         )
         return AWAITING_CAPTION
 
@@ -126,9 +127,8 @@ async def _process_and_extract(
 ) -> int:
     """Download photo, call Gemini API, and display confirmation message."""
     message = update.effective_message
-    chat_id = update.effective_chat.id
 
-    processing_msg = await message.reply_text("⏳ _Membaca bukti transaksi dengan Gemini..._", parse_mode=ParseMode.MARKDOWN)
+    processing_msg = await message.reply_text("⏳ <i>Membaca bukti transaksi dengan Gemini...</i>", parse_mode=ParseMode.HTML)
 
     try:
         # Download photo bytes
@@ -147,10 +147,10 @@ async def _process_and_extract(
             err_text = result.get("error") or "Gagal membaca teks dari gambar."
             logger.warning("Gemini extraction error: %s", err_text)
             await processing_msg.edit_text(
-                f"⚠️ *Gagal mengekstrak data otomatis.*\n\n"
-                f"Detail: `{err_text}`\n\n"
-                f"Silakan coba kirim foto yang lebih jelas atau pencatatan dibatalkan.",
-                parse_mode=ParseMode.MARKDOWN,
+                f"⚠️ <b>Gagal mengekstrak data otomatis.</b>\n\n"
+                f"Detail: <code>{html.escape(str(err_text))}</code>\n\n"
+                f"Silakan coba kirim foto yang lebih jelas.",
+                parse_mode=ParseMode.HTML,
             )
             return ConversationHandler.END
 
@@ -167,15 +167,15 @@ async def _process_and_extract(
         await processing_msg.edit_text(
             summary_text,
             reply_markup=keyboard,
-            parse_mode=ParseMode.MARKDOWN,
+            parse_mode=ParseMode.HTML,
         )
         return ConversationHandler.END
 
     except Exception as exc:
         logger.error("Error saat memproses foto transaksi: %s", exc, exc_info=True)
         await processing_msg.edit_text(
-            f"❌ Terjadi kesalahan saat memproses gambar: `{exc}`",
-            parse_mode=ParseMode.MARKDOWN,
+            f"❌ Terjadi kesalahan saat memproses gambar: <code>{html.escape(str(exc))}</code>",
+            parse_mode=ParseMode.HTML,
         )
         return ConversationHandler.END
 
@@ -194,9 +194,9 @@ async def callback_save_expense(update: Update, context: ContextTypes.DEFAULT_TY
     try:
         saved_record = sheets.add_expense(draft)
         nominal_formatted = charts.format_rupiah(saved_record.get("nominal", 0))
-        keterangan = saved_record.get("keterangan", "")
-        jenis = saved_record.get("jenis_bukti", "Nota")
-        tanggal = saved_record.get("tanggal", "")
+        keterangan = html.escape(str(saved_record.get("keterangan", "")))
+        jenis = html.escape(str(saved_record.get("jenis_bukti", "Nota")))
+        tanggal = html.escape(str(saved_record.get("tanggal", "")))
         exp_id = saved_record.get("id", "-")
 
         # Clear draft
@@ -204,18 +204,19 @@ async def callback_save_expense(update: Update, context: ContextTypes.DEFAULT_TY
         context.user_data.pop("photo_file_id", None)
 
         confirmation_text = (
-            f"✅ *Tercatat:* `{nominal_formatted}` — *{keterangan}*\n"
-            f"📌 ID: `{exp_id}` | _{jenis}_ | 📅 `{tanggal}`\n"
+            f"✅ <b>Tercatat:</b> <code>{nominal_formatted}</code> — <b>{keterangan}</b>\n"
+            f"📌 ID: <code>{exp_id}</code> | <i>{jenis}</i> | 📅 <code>{tanggal}</code>\n"
             f"💾 Data berhasil disimpan ke Google Sheets."
         )
 
-        await query.edit_message_text(confirmation_text, parse_mode=ParseMode.MARKDOWN)
+        await query.edit_message_text(confirmation_text, parse_mode=ParseMode.HTML)
 
     except Exception as exc:
         logger.error("Gagal menyimpan ke Google Sheets: %s", exc, exc_info=True)
         await query.edit_message_text(
-            f"❌ Gagal menyimpan ke Google Sheets: `{exc}`\nCoba periksa koneksi atau izin Service Account.",
-            parse_mode=ParseMode.MARKDOWN,
+            f"❌ Gagal menyimpan ke Google Sheets: <code>{html.escape(str(exc))}</code>\n"
+            f"Pastikan Service Account memiliki akses Editor ke Spreadsheet.",
+            parse_mode=ParseMode.HTML,
         )
 
 
@@ -244,19 +245,19 @@ async def callback_start_edit_draft(update: Update, context: ContextTypes.DEFAUL
         return ConversationHandler.END
 
     instruction_text = (
-        "✏️ *Edit Data Transaksi*\n\n"
+        "✏️ <b>Edit Data Transaksi</b>\n\n"
         "Kirim field yang ingin diubah dalam format bebas, contoh:\n"
-        "• `nominal: 35000`\n"
-        "• `kategori: Makanan & Minuman`\n"
-        "• `keterangan: Beli bakso super`\n"
-        "• `merchant: Bakso Pak Kumis`\n"
-        "• `tanggal: 2026-08-27`\n"
-        "• `waktu: 13:00`\n"
-        "• `jenis_bukti: QRIS`\n\n"
-        "_(Bisa ketik beberapa field sekaligus per baris. Ketik `batal` untuk membatalkan edit.)_"
+        "• <code>nominal: 35000</code>\n"
+        "• <code>kategori: Makanan & Minuman</code>\n"
+        "• <code>keterangan: Beli bakso super</code>\n"
+        "• <code>merchant: Bakso Pak Kumis</code>\n"
+        "• <code>tanggal: 2026-08-27</code>\n"
+        "• <code>waktu: 13:00</code>\n"
+        "• <code>jenis_bukti: QRIS</code>\n\n"
+        "<i>(Bisa ketik beberapa field sekaligus per baris. Ketik <code>batal</code> untuk membatalkan edit.)</i>"
     )
 
-    await query.message.reply_text(instruction_text, parse_mode=ParseMode.MARKDOWN)
+    await query.message.reply_text(instruction_text, parse_mode=ParseMode.HTML)
     return AWAITING_EDIT_INPUT
 
 
@@ -274,7 +275,7 @@ async def handle_edit_draft_input(update: Update, context: ContextTypes.DEFAULT_
         if draft:
             summary_text = _build_summary_message(draft)
             keyboard = _get_confirmation_keyboard()
-            await message.reply_text(summary_text, reply_markup=keyboard, parse_mode=ParseMode.MARKDOWN)
+            await message.reply_text(summary_text, reply_markup=keyboard, parse_mode=ParseMode.HTML)
         return ConversationHandler.END
 
     draft = context.user_data.get("current_expense_draft")
@@ -313,10 +314,10 @@ async def handle_edit_draft_input(update: Update, context: ContextTypes.DEFAULT_
     context.user_data["current_expense_draft"] = draft
 
     # Re-display updated summary
-    summary_text = "🔄 *Data Telah Diperbarui:*\n\n" + _build_summary_message(draft)
+    summary_text = "🔄 <b>Data Telah Diperbarui:</b>\n\n" + _build_summary_message(draft)
     keyboard = _get_confirmation_keyboard()
 
-    await message.reply_text(summary_text, reply_markup=keyboard, parse_mode=ParseMode.MARKDOWN)
+    await message.reply_text(summary_text, reply_markup=keyboard, parse_mode=ParseMode.HTML)
     return ConversationHandler.END
 
 

@@ -1,3 +1,4 @@
+import html
 import logging
 import re
 from typing import Any, Dict
@@ -42,19 +43,19 @@ async def hapus_terakhir_command(update: Update, context: ContextTypes.DEFAULT_T
         last_record = all_records[-1]
         exp_id = last_record.get("id", "-")
         nominal_formatted = charts.format_rupiah(last_record.get("nominal", 0))
-        keterangan = last_record.get("keterangan", "-")
-        tanggal = last_record.get("tanggal", "-")
-        kategori = last_record.get("kategori", "-")
+        keterangan = html.escape(str(last_record.get("keterangan", "-")))
+        tanggal = html.escape(str(last_record.get("tanggal", "-")))
+        kategori = html.escape(str(last_record.get("kategori", "-")))
 
         confirm_text = (
-            f"⚠️ *Konfirmasi Hapus Transaksi Terakhir*\n\n"
+            f"⚠️ <b>Konfirmasi Hapus Transaksi Terakhir</b>\n\n"
             f"Yakin ingin menghapus data transaksi berikut dari Spreadsheet?\n"
             f"━━━━━━━━━━━━━━━━━━\n"
-            f"📌 *ID*        : `{exp_id}`\n"
-            f"💵 *Nominal*   : `{nominal_formatted}`\n"
-            f"🏷 *Keterangan*: {keterangan}\n"
-            f"📁 *Kategori*  : {kategori}\n"
-            f"📅 *Tanggal*   : {tanggal}\n"
+            f"📌 <b>ID</b>        : <code>{exp_id}</code>\n"
+            f"💵 <b>Nominal</b>   : <code>{nominal_formatted}</code>\n"
+            f"🏷 <b>Keterangan</b>: {keterangan}\n"
+            f"📁 <b>Kategori</b>  : {kategori}\n"
+            f"📅 <b>Tanggal</b>   : <code>{tanggal}</code>\n"
             f"━━━━━━━━━━━━━━━━━━"
         )
 
@@ -66,11 +67,11 @@ async def hapus_terakhir_command(update: Update, context: ContextTypes.DEFAULT_T
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
 
-        await message.reply_text(confirm_text, reply_markup=reply_markup, parse_mode=ParseMode.MARKDOWN)
+        await message.reply_text(confirm_text, reply_markup=reply_markup, parse_mode=ParseMode.HTML)
 
     except Exception as exc:
         logger.error("Error on /hapus_terakhir: %s", exc, exc_info=True)
-        await message.reply_text(f"❌ Terjadi kesalahan: `{exc}`")
+        await message.reply_text(f"❌ Terjadi kesalahan: <code>{html.escape(str(exc))}</code>", parse_mode=ParseMode.HTML)
 
 
 @config.restricted
@@ -87,16 +88,16 @@ async def callback_confirm_delete_last(update: Update, context: ContextTypes.DEF
 
         exp_id = deleted.get("id", "-")
         nominal = charts.format_rupiah(deleted.get("nominal", 0))
-        ket = deleted.get("keterangan", "")
+        ket = html.escape(str(deleted.get("keterangan", "")))
 
         await query.edit_message_text(
-            f"✅ *Transaksi ID {exp_id}* (`{nominal}` — _{ket}_) berhasil dihapus dari Google Sheets.",
-            parse_mode=ParseMode.MARKDOWN,
+            f"✅ <b>Transaksi ID {exp_id}</b> (<code>{nominal}</code> — <i>{ket}</i>) berhasil dihapus dari Google Sheets.",
+            parse_mode=ParseMode.HTML,
         )
 
     except Exception as exc:
         logger.error("Error deleting last expense: %s", exc, exc_info=True)
-        await query.edit_message_text(f"❌ Gagal menghapus baris dari Google Sheets: `{exc}`")
+        await query.edit_message_text(f"❌ Gagal menghapus baris dari Google Sheets: <code>{html.escape(str(exc))}</code>", parse_mode=ParseMode.HTML)
 
 
 @config.restricted
@@ -122,23 +123,23 @@ async def edit_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
 
     if not args:
         await message.reply_text(
-            "⚠️ Harap sertakan ID transaksi yang ingin diedit.\n\nContoh: `/edit 5`",
-            parse_mode=ParseMode.MARKDOWN,
+            "⚠️ Harap sertakan ID transaksi yang ingin diedit.\n\nContoh: <code>/edit 5</code>",
+            parse_mode=ParseMode.HTML,
         )
         return ConversationHandler.END
 
     try:
         target_id = int(args[0])
     except ValueError:
-        await message.reply_text("⚠️ ID transaksi harus berupa angka.\nContoh: `/edit 5`")
+        await message.reply_text("⚠️ ID transaksi harus berupa angka.\nContoh: <code>/edit 5</code>", parse_mode=ParseMode.HTML)
         return ConversationHandler.END
 
-    status_msg = await message.reply_text(f"⏳ _Mencari data transaksi ID {target_id}..._", parse_mode=ParseMode.MARKDOWN)
+    status_msg = await message.reply_text(f"⏳ <i>Mencari data transaksi ID {target_id}...</i>", parse_mode=ParseMode.HTML)
 
     try:
         record, row_idx = sheets.get_expense_by_id(target_id)
         if not record:
-            await status_msg.edit_text(f"❌ Transaksi dengan ID `{target_id}` tidak ditemukan di Spreadsheet.", parse_mode=ParseMode.MARKDOWN)
+            await status_msg.edit_text(f"❌ Transaksi dengan ID <code>{target_id}</code> tidak ditemukan di Spreadsheet.", parse_mode=ParseMode.HTML)
             return ConversationHandler.END
 
         # Store editing state in context
@@ -148,33 +149,33 @@ async def edit_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
         nominal_formatted = charts.format_rupiah(record.get("nominal", 0))
 
         info_text = (
-            f"📝 *Edit Transaksi ID: {target_id}*\n"
+            f"📝 <b>Edit Transaksi ID: {target_id}</b>\n"
             f"━━━━━━━━━━━━━━━━━━\n"
-            f"• *Jenis Bukti* : {record.get('jenis_bukti', '-')}\n"
-            f"• *Tanggal*     : `{record.get('tanggal', '-')}`\n"
-            f"• *Waktu*       : `{record.get('waktu', '-')}`\n"
-            f"• *Nominal*     : `{nominal_formatted}`\n"
-            f"• *Merchant*    : {record.get('merchant', '-') or '-'}\n"
-            f"• *Keterangan*  : {record.get('keterangan', '-')}\n"
-            f"• *Kategori*    : {record.get('kategori', '-')}\n"
+            f"• <b>Jenis Bukti</b> : {html.escape(str(record.get('jenis_bukti', '-')))}\n"
+            f"• <b>Tanggal</b>     : <code>{html.escape(str(record.get('tanggal', '-')))}</code>\n"
+            f"• <b>Waktu</b>       : <code>{html.escape(str(record.get('waktu', '-')))}</code>\n"
+            f"• <b>Nominal</b>     : <code>{nominal_formatted}</code>\n"
+            f"• <b>Merchant</b>    : {html.escape(str(record.get('merchant', '-') or '-'))}\n"
+            f"• <b>Keterangan</b>  : {html.escape(str(record.get('keterangan', '-')))}\n"
+            f"• <b>Kategori</b>    : {html.escape(str(record.get('kategori', '-')))}\n"
             f"━━━━━━━━━━━━━━━━━━\n\n"
             f"Kirim field yang ingin diubah. Contoh:\n"
-            f"• `nominal: 45000`\n"
-            f"• `keterangan: Nasi Padang Komplit`\n"
-            f"• `kategori: Makanan & Minuman`\n"
-            f"• `merchant: RM Padang Sederhana`\n"
-            f"• `tanggal: 2026-08-27`\n"
-            f"• `waktu: 12:30`\n"
-            f"• `jenis_bukti: QRIS`\n\n"
-            f"_(Bisa ubah beberapa field sekaligus per baris. Ketik `batal` untuk membatalkan)_"
+            f"• <code>nominal: 45000</code>\n"
+            f"• <code>keterangan: Nasi Padang Komplit</code>\n"
+            f"• <code>kategori: Makanan & Minuman</code>\n"
+            f"• <code>merchant: RM Padang Sederhana</code>\n"
+            f"• <code>tanggal: 2026-08-27</code>\n"
+            f"• <code>waktu: 12:30</code>\n"
+            f"• <code>jenis_bukti: QRIS</code>\n\n"
+            f"<i>(Bisa ubah beberapa field sekaligus per baris. Ketik <code>batal</code> untuk membatalkan)</i>"
         )
 
-        await status_msg.edit_text(info_text, parse_mode=ParseMode.MARKDOWN)
+        await status_msg.edit_text(info_text, parse_mode=ParseMode.HTML)
         return AWAITING_ROW_EDIT
 
     except Exception as exc:
         logger.error("Error fetching record for edit: %s", exc, exc_info=True)
-        await status_msg.edit_text(f"❌ Gagal memuat data: `{exc}`")
+        await status_msg.edit_text(f"❌ Gagal memuat data: <code>{html.escape(str(exc))}</code>", parse_mode=ParseMode.HTML)
         return ConversationHandler.END
 
 
@@ -206,7 +207,7 @@ async def handle_edit_row_input(update: Update, context: ContextTypes.DEFAULT_TY
         else:
             updates["keterangan"] = text
 
-    status_msg = await message.reply_text("⏳ _Menyimpan perubahan ke Google Sheets..._", parse_mode=ParseMode.MARKDOWN)
+    status_msg = await message.reply_text("⏳ <i>Menyimpan perubahan ke Google Sheets...</i>", parse_mode=ParseMode.HTML)
 
     try:
         success = sheets.update_expense(target_id, updates)
@@ -220,21 +221,21 @@ async def handle_edit_row_input(update: Update, context: ContextTypes.DEFAULT_TY
         context.user_data.pop("editing_expense_data", None)
 
         nominal_str = charts.format_rupiah(updated_rec.get("nominal", 0)) if updated_rec else ""
-        ket_str = updated_rec.get("keterangan", "") if updated_rec else ""
+        ket_str = html.escape(str(updated_rec.get("keterangan", ""))) if updated_rec else ""
 
         await status_msg.edit_text(
-            f"✅ *Transaksi ID {target_id} berhasil diupdate!*\n\n"
-            f"• Nominal: `{nominal_str}`\n"
+            f"✅ <b>Transaksi ID {target_id} berhasil diupdate!</b>\n\n"
+            f"• Nominal: <code>{nominal_str}</code>\n"
             f"• Keterangan: {ket_str}\n"
-            f"• Kategori: {updated_rec.get('kategori', '-') if updated_rec else '-'}\n"
-            f"• Tanggal: `{updated_rec.get('tanggal', '-') if updated_rec else '-'}`",
-            parse_mode=ParseMode.MARKDOWN,
+            f"• Kategori: {html.escape(str(updated_rec.get('kategori', '-') if updated_rec else '-'))}\n"
+            f"• Tanggal: <code>{html.escape(str(updated_rec.get('tanggal', '-') if updated_rec else '-'))}</code>",
+            parse_mode=ParseMode.HTML,
         )
         return ConversationHandler.END
 
     except Exception as exc:
         logger.error("Error updating row %s: %s", target_id, exc, exc_info=True)
-        await status_msg.edit_text(f"❌ Terjadi kesalahan saat mengupdate: `{exc}`")
+        await status_msg.edit_text(f"❌ Terjadi kesalahan saat mengupdate: <code>{html.escape(str(exc))}</code>", parse_mode=ParseMode.HTML)
         return ConversationHandler.END
 
 
