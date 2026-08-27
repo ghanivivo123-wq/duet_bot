@@ -141,18 +141,44 @@ def extract_expense_from_image(
 
         gen_config = types.GenerateContentConfig(**config_kwargs)
 
-        # Call Gemini API
-        response = client.models.generate_content(
-            model=config.GEMINI_MODEL,
-            contents=[
-                types.Part.from_bytes(
-                    data=image_bytes,
-                    mime_type=mime_type,
-                ),
-                prompt_text,
-            ],
-            config=gen_config,
-        )
+        # Auto-correct model name typos
+        target_model = (config.GEMINI_MODEL or "gemini-3.7-flash").strip()
+        if target_model.endswith("flas"):
+            target_model += "h"
+        if not target_model.startswith("gemini-"):
+            target_model = "gemini-3.7-flash"
+
+        # List of candidate models for fallback
+        candidate_models = [target_model, "gemini-3.7-flash", "gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"]
+        # Deduplicate preserving order
+        candidate_models = list(dict.fromkeys(candidate_models))
+
+        response = None
+        last_err = None
+
+        for model_name in candidate_models:
+            try:
+                response = client.models.generate_content(
+                    model=model_name,
+                    contents=[
+                        types.Part.from_bytes(
+                            data=image_bytes,
+                            mime_type=mime_type,
+                        ),
+                        prompt_text,
+                    ],
+                    config=gen_config,
+                )
+                if response and response.text:
+                    logger.info("Berhasil ekstraksi menggunakan model: %s", model_name)
+                    break
+            except Exception as call_err:
+                last_err = call_err
+                logger.warning("Gagal memanggil model '%s': %s. Mencoba fallback...", model_name, call_err)
+                continue
+
+        if not response or not response.text:
+            raise last_err or ValueError("Tidak ada respon dari Gemini API.")
 
         raw_text = response.text or ""
         cleaned_json = _clean_json_string(raw_text)
