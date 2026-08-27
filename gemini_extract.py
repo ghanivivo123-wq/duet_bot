@@ -93,20 +93,38 @@ def _clean_json_string(text: str) -> str:
     return text.strip()
 
 
+from PIL import Image
+import io
+
+def _optimize_image(image_bytes: bytes) -> tuple[bytes, str]:
+    """Resize and compress image for ultra-fast upload and OCR processing."""
+    try:
+        img = Image.open(io.BytesIO(image_bytes))
+        if img.mode in ("RGBA", "P"):
+            img = img.convert("RGB")
+        # Resize if larger than 1200px for optimal speed & accuracy
+        max_dim = 1200
+        if max(img.size) > max_dim:
+            img.thumbnail((max_dim, max_dim), Image.Resampling.LANCZOS)
+        out_buf = io.BytesIO()
+        img.save(out_buf, format="JPEG", quality=82, optimize=True)
+        return out_buf.getvalue(), "image/jpeg"
+    except Exception:
+        return image_bytes, "image/jpeg"
+
+
 def extract_expense_from_image(
     image_bytes: bytes,
     mime_type: str = "image/jpeg",
     user_caption: str = "",
 ) -> Dict[str, Any]:
     """
-    Extract expense data from receipt/QRIS image using Gemini 3.7 Flash.
-    
-    Returns a dict with:
-      - success (bool)
-      - data (dict with parsed fields)
-      - raw_response (str)
-      - error (str or None)
+    Extract expense data from receipt/QRIS image using Gemini.
+    Optimized for high-speed response.
     """
+    # Optimize image size for faster network transfer
+    image_bytes, mime_type = _optimize_image(image_bytes)
+
     today_str = datetime.now().strftime("%Y-%m-%d")
     current_time_str = datetime.now().strftime("%H:%M")
 
@@ -126,18 +144,17 @@ def extract_expense_from_image(
     try:
         client = get_gemini_client()
 
-        # Build GenerateContentConfig
+        # Build GenerateContentConfig (Disable thinking budget for instant response)
         config_kwargs = {
             "response_mime_type": "application/json",
             "system_instruction": SYSTEM_INSTRUCTION,
             "temperature": 0.1,
         }
 
-        # Configure thinking if supported by SDK
+        # Set thinking_budget=0 to disable thinking overhead and return output instantly
         try:
             if hasattr(types, "ThinkingConfig"):
-                # Thinking level low / budget minimal for structured OCR
-                config_kwargs["thinking_config"] = types.ThinkingConfig(thinking_budget=1024)
+                config_kwargs["thinking_config"] = types.ThinkingConfig(thinking_budget=0)
         except Exception as e:
             logger.debug("ThinkingConfig not set: %s", e)
 
