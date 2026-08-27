@@ -10,6 +10,8 @@ from google.genai import types
 import config
 
 logger = logging.getLogger(__name__)
+# Silence google_genai verbose AFC warnings
+logging.getLogger("google_genai").setLevel(logging.ERROR)
 
 # Initialize client
 _client: Optional[genai.Client] = None
