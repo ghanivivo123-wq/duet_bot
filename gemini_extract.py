@@ -161,14 +161,14 @@ def extract_expense_from_image(
         gen_config = types.GenerateContentConfig(**config_kwargs)
 
         # Auto-correct model name typos
-        target_model = (config.GEMINI_MODEL or "gemini-3.7-flash").strip()
+        target_model = (config.GEMINI_MODEL or "gemini-3.6-flash").strip()
         if target_model.endswith("flas"):
             target_model += "h"
         if not target_model.startswith("gemini-"):
-            target_model = "gemini-3.7-flash"
+            target_model = "gemini-3.6-flash"
 
-        # List of candidate models for fallback
-        candidate_models = [target_model, "gemini-3.7-flash", "gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"]
+        # List of candidate models for fallback (ultra-fast 3.6-flash first)
+        candidate_models = [target_model, "gemini-3.6-flash", "gemini-flash-latest", "gemini-3.7-flash"]
         # Deduplicate preserving order
         candidate_models = list(dict.fromkeys(candidate_models))
 
